@@ -2,8 +2,11 @@
 node_modules/
 frontend/node_modules/
 
-# Next.js
+# Next.js build output
 .next/
+frontend/.next/
+
+# production
 out/
 
 # env files
