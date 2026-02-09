@@ -1,0 +1,165 @@
+# API Contracts: AI Agent & Tool-Oriented Behavior
+
+**Feature**: AI Agent & Tool-Oriented Behavior
+**Created**: 2026-02-08
+**Related Plan**: specs/3-ai-agent-tool-behavior/plan/impl-plan.md
+
+## Agent Processing Endpoint
+
+### /process_request
+
+**Description**: Processes natural language input, invokes appropriate MCP tools, returns friendly response with tool call log
+
+**Request Format**:
+```json
+{
+  "user_message": "string (required)",
+  "thread_id": "string (optional)"
+}
+```
+
+**Response Format**:
+```json
+{
+  "response": "string",
+  "tool_calls": [
+    {
+      "name": "string (tool name)",
+      "arguments": "object (input parameters)",
+      "result": "object (output result)",
+      "success": "boolean"
+    }
+  ],
+  "thread_id": "string",
+  "timestamp": "datetime string"
+}
+```
+
+**Success Response**:
+- HTTP Status: 200 OK
+- Body: Contains the agent response with tool call information
+
+**Error Responses**:
+- Invalid input: 400 Bad Request with error message
+- Agent processing error: 500 Internal Server Error with error details
+- MCP tool unavailable: 503 Service Unavailable
+
+---
+
+## Tool Definitions for OpenAI Agent
+
+### add_task
+
+**Description**: Creates a new task with the provided details.
+
+**Function Schema**:
+```json
+{
+  "name": "add_task",
+  "description": "Creates a new task with the provided title and description",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "title": {
+        "type": "string",
+        "description": "The title of the task"
+      },
+      "description": {
+        "type": "string",
+        "description": "The description of the task"
+      }
+    },
+    "required": ["title"]
+  }
+}
+```
+
+### list_tasks
+
+**Description**: Retrieves all tasks in the system.
+
+**Function Schema**:
+```json
+{
+  "name": "list_tasks",
+  "description": "Retrieves all tasks in the system",
+  "parameters": {
+    "type": "object",
+    "properties": {}
+  }
+}
+```
+
+### update_task
+
+**Description**: Updates an existing task with the provided details.
+
+**Function Schema**:
+```json
+{
+  "name": "update_task",
+  "description": "Updates an existing task with the provided details",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "integer",
+        "description": "The ID of the task to update"
+      },
+      "title": {
+        "type": "string",
+        "description": "The new title of the task (optional)"
+      },
+      "description": {
+        "type": "string",
+        "description": "The new description of the task (optional)"
+      }
+    },
+    "required": ["id"]
+  }
+}
+```
+
+### complete_task
+
+**Description**: Marks a task as completed.
+
+**Function Schema**:
+```json
+{
+  "name": "complete_task",
+  "description": "Marks a task as completed",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "integer",
+        "description": "The ID of the task to complete"
+      }
+    },
+    "required": ["id"]
+  }
+}
+```
+
+### delete_task
+
+**Description**: Removes a task from the system.
+
+**Function Schema**:
+```json
+{
+  "name": "delete_task",
+  "description": "Removes a task from the system",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "integer",
+        "description": "The ID of the task to delete"
+      }
+    },
+    "required": ["id"]
+  }
+}
+```

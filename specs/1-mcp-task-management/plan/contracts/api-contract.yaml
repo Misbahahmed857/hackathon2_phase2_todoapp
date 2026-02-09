@@ -1,0 +1,185 @@
+# API Contracts: MCP Task Management Server
+
+**Feature**: MCP Task Management Server
+**Created**: 2026-02-08
+**Related Plan**: specs/1-mcp-task-management/plan/impl-plan.md
+
+## MCP Tool Definitions
+
+### add_task
+
+**Description**: Creates a new task with the provided details.
+
+**Request Format**:
+```json
+{
+  "title": "string (required, 1-255 characters)",
+  "description": "string (optional, 0-1000 characters)"
+}
+```
+
+**Response Format**:
+```json
+{
+  "success": "boolean",
+  "task": {
+    "id": "integer",
+    "title": "string",
+    "description": "string",
+    "status": "string (pending|completed)",
+    "created_at": "datetime string",
+    "completed_at": "datetime string or null"
+  },
+  "message": "string"
+}
+```
+
+**Success Response**:
+- HTTP Status: 200 OK
+- Body: Contains the created task object with success=true
+
+**Error Responses**:
+- Invalid input: success=false, message describes the validation error
+- Server error: success=false, message indicates server issue
+
+---
+
+### list_tasks
+
+**Description**: Retrieves all tasks in the system.
+
+**Request Format**:
+```json
+{}
+```
+
+**Response Format**:
+```json
+{
+  "success": "boolean",
+  "tasks": [
+    {
+      "id": "integer",
+      "title": "string",
+      "description": "string",
+      "status": "string (pending|completed)",
+      "created_at": "datetime string",
+      "completed_at": "datetime string or null"
+    }
+  ],
+  "count": "integer"
+}
+```
+
+**Success Response**:
+- HTTP Status: 200 OK
+- Body: Contains array of all task objects with success=true and count
+
+**Error Responses**:
+- Server error: success=false, message indicates server issue
+
+---
+
+### update_task
+
+**Description**: Updates an existing task with the provided details.
+
+**Request Format**:
+```json
+{
+  "id": "integer (required)",
+  "title": "string (optional, 1-255 characters)",
+  "description": "string (optional, 0-1000 characters)"
+}
+```
+
+**Response Format**:
+```json
+{
+  "success": "boolean",
+  "task": {
+    "id": "integer",
+    "title": "string",
+    "description": "string",
+    "status": "string (pending|completed)",
+    "created_at": "datetime string",
+    "completed_at": "datetime string or null"
+  },
+  "message": "string"
+}
+```
+
+**Success Response**:
+- HTTP Status: 200 OK
+- Body: Contains the updated task object with success=true
+
+**Error Responses**:
+- Task not found: success=false, message indicates task not found
+- Invalid input: success=false, message describes the validation error
+- Server error: success=false, message indicates server issue
+
+---
+
+### complete_task
+
+**Description**: Marks a task as completed.
+
+**Request Format**:
+```json
+{
+  "id": "integer (required)"
+}
+```
+
+**Response Format**:
+```json
+{
+  "success": "boolean",
+  "task": {
+    "id": "integer",
+    "title": "string",
+    "description": "string",
+    "status": "string (pending|completed)",
+    "created_at": "datetime string",
+    "completed_at": "datetime string or null"
+  },
+  "message": "string"
+}
+```
+
+**Success Response**:
+- HTTP Status: 200 OK
+- Body: Contains the completed task object with success=true
+
+**Error Responses**:
+- Task not found: success=false, message indicates task not found
+- Server error: success=false, message indicates server issue
+
+---
+
+### delete_task
+
+**Description**: Removes a task from the system.
+
+**Request Format**:
+```json
+{
+  "id": "integer (required)"
+}
+```
+
+**Response Format**:
+```json
+{
+  "success": "boolean",
+  "message": "string"
+}
+```
+
+**Success Response**:
+- HTTP Status: 200 OK
+- Body: success=true with confirmation message
+
+**Error Responses**:
+- Task not found: success=false, message indicates task not found
+- Server error: success=false, message indicates server issue

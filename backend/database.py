@@ -1,88 +1,90 @@
-from sqlmodel import create_engine, Session
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
-from typing import AsyncGenerator
-import os
-from contextlib import asynccontextmanager
-from dotenv import load_dotenv
-import urllib.parse
-
-# Load environment variables
-load_dotenv()
-
-def clean_database_url(original_url):
-    """
-    Clean the database URL by removing unsupported parameters for asyncpg
-    """
-    if original_url.startswith("postgresql+asyncpg://"):
-        # Parse the URL
-        parsed = urllib.parse.urlparse(original_url)
-        
-        # Reconstruct without problematic query parameters
-        cleaned_query = []
-        for pair in parsed.query.split('&'):
-            if pair and '=' in pair:
-                key, value = pair.split('=', 1)
-                # Remove parameters that asyncpg doesn't support
-                if key not in ['sslmode', 'channel_binding']:
-                    cleaned_query.append(pair)
-        
-        # Reconstruct the URL
-        if cleaned_query:
-            new_query = '&'.join(cleaned_query)
-            new_url = parsed._replace(query=new_query).geturl()
-        else:
-            new_url = parsed._replace(query='').geturl()
-        
-        return new_url
-    
-    return original_url
-
-# Database URL - using Neon Serverless PostgreSQL for production
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./todo_app.db")
-CLEANED_DATABASE_URL = clean_database_url(DATABASE_URL)
-
-# Create async engine for PostgreSQL (Neon) or SQLite
-if CLEANED_DATABASE_URL.startswith("postgresql"):
-    # Use async engine for PostgreSQL
-    async_engine = create_async_engine(CLEANED_DATABASE_URL)
-elif CLEANED_DATABASE_URL.startswith("sqlite"):
-    # Use async engine for SQLite
-    async_engine = create_async_engine(CLEANED_DATABASE_URL)
-else:
-    # Default to SQLite for development
-    async_engine = create_async_engine("sqlite+aiosqlite:///./todo_app.db")
-
-# Create async session maker
-AsyncSessionLocal = sessionmaker(
-    autocommit=False,
-    autoflush=False,
-    bind=async_engine,
-    class_=AsyncSession,
-    expire_on_commit=False
-)
+from typing import List, Optional
+from sqlmodel import Session, select, func, create_engine
+from datetime import datetime
+from backend.models.task_model import Task, TaskUpdate, TaskStatus
+from sqlmodel import SQLModel
+from sqlalchemy.ext.asyncio import create_async_engine
+from config import settings
+import asyncio
 
 
-async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
-    """
-    Dependency that provides an async database session
-    """
-    async with AsyncSessionLocal() as session:
-        yield session
+# Create synchronous engine
+sync_engine = create_engine(settings.database_url)
 
 
-# Import models here to ensure tables are created
-async def create_db_and_tables():
-    """
-    Create database tables
-    """
-    from sqlmodel import SQLModel
-    from models.user import User
-    from models.todo import Todo
+def create_db_and_tables():
+    """Create database tables"""
+    SQLModel.metadata.create_all(sync_engine)
 
+
+async def create_db_and_tables_async():
+    """Async version to create database tables"""
+    from sqlalchemy.ext.asyncio import create_async_engine
+    async_engine = create_async_engine(settings.database_url.replace("postgresql://", "postgresql+asyncpg://"))
     async with async_engine.begin() as conn:
-        # For SQLite, we need to use sync execution
-        if CLEANED_DATABASE_URL.startswith("sqlite"):
-            await conn.run_sync(SQLModel.metadata.create_all)
-        else:
-            await conn.run_sync(SQLModel.metadata.create_all)
+        await conn.run_sync(SQLModel.metadata.create_all)
+    await async_engine.dispose()
+
+
+def create_task(session: Session, title: str, description: Optional[str] = None) -> Task:
+    """Create a new task in the database"""
+    task = Task(title=title, description=description, status=TaskStatus.PENDING)
+    session.add(task)
+    session.commit()
+    session.refresh(task)
+    return task
+
+
+def get_all_tasks(session: Session) -> List[Task]:
+    """Retrieve all tasks from the database"""
+    tasks = session.exec(select(Task)).all()
+    return tasks
+
+
+def get_task_by_id(session: Session, task_id: int) -> Optional[Task]:
+    """Get a specific task by its ID"""
+    task = session.get(Task, task_id)
+    return task
+
+
+def update_task(session: Session, task_id: int, task_update: TaskUpdate) -> Optional[Task]:
+    """Update an existing task in the database"""
+    task = session.get(Task, task_id)
+    if not task:
+        return None
+    
+    # Update fields that are provided
+    update_data = task_update.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(task, field, value)
+    
+    session.add(task)
+    session.commit()
+    session.refresh(task)
+    return task
+
+
+def complete_task(session: Session, task_id: int) -> Optional[Task]:
+    """Mark a task as completed"""
+    task = session.get(Task, task_id)
+    if not task:
+        return None
+    
+    task.status = TaskStatus.COMPLETED
+    task.completed_at = datetime.now()
+    
+    session.add(task)
+    session.commit()
+    session.refresh(task)
+    return task
+
+
+def delete_task(session: Session, task_id: int) -> bool:
+    """Delete a task from the database"""
+    task = session.get(Task, task_id)
+    if not task:
+        return False
+    
+    session.delete(task)
+    session.commit()
+    return True

@@ -2,20 +2,17 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import create_db_and_tables
-from routers import auth, todos
+from mcp import Server
+from backend.tools.task_operations import server as mcp_server
 import os
 from fastapi.responses import RedirectResponse
 import logging
+import threading
+import time
 
-# Disable the database initialization in lifespan for now to allow server to start
-# Database initialization can be handled separately or manually
-async def initialize_db():
-    try:
-        await create_db_and_tables()
-        logging.info("Database tables created successfully")
-    except Exception as e:
-        logging.error(f"Database initialization failed: {e}")
-        # Continue without database if initialization fails
+
+# Initialize the MCP server
+mcp_server_instance = mcp_server
 
 
 @asynccontextmanager
@@ -25,13 +22,26 @@ async def lifespan(app: FastAPI):
         await create_db_and_tables()
     except Exception as e:
         print(f"Database initialization error: {e}")
+    
+    # Start the MCP server in a separate thread
+    def run_mcp_server():
+        # Give a small delay to ensure FastAPI server starts first
+        time.sleep(1)
+        mcp_server_instance.run()
+    
+    # Run the MCP server in a background thread
+    mcp_thread = threading.Thread(target=run_mcp_server, daemon=True)
+    mcp_thread.start()
+    
     yield
+    
+    # Shutdown operations can go here if needed
 
 
 # Create FastAPI app with lifespan
 app = FastAPI(
-    title="Todo Web Application API",
-    description="API for the Todo Web Application with user authentication and task management",
+    title="MCP Task Management Server",
+    description="Server exposing task management operations as MCP tools",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -45,17 +55,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(auth.router)
-app.include_router(todos.router)
-
 
 @app.get("/")
 def read_root():
     """
     Root endpoint to verify API is running
     """
-    return {"message": "Todo Web Application API is running!"}
+    return {"message": "MCP Task Management Server is running!", "status": "ready"}
 
 
 @app.get("/health")
@@ -63,7 +69,7 @@ def health_check():
     """
     Health check endpoint
     """
-    return {"status": "healthy", "service": "todo-api"}
+    return {"status": "healthy", "service": "mcp-task-management-server"}
 
 
 # Redirect to docs by default
